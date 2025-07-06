@@ -38,11 +38,6 @@ function generateUniqueCode() {
   return Math.random().toString(36).substr(2, 10).toUpperCase();
 }
 
-function generateUniqueAmount(amount) {
-  const randomCode = Math.floor(Math.random() * 999) + 1;
-  return { totalAmount: amount + randomCode, uniqueCode: randomCode };
-}
-
 // ✅ Uploader terbaru (file.idnet.my.id)
 async function uploadImage(buffer) {
   try {
@@ -67,7 +62,7 @@ async function uploadImage(buffer) {
 
 async function handleDeposit(bot, chatId, messageId) {
   const msg = await bot.editMessageText(
-    "💰 *Deposit Saldo*\n\nMasukkan jumlah deposit:\n_(minimal Rp 1000)_",
+    "💰 *Deposit Saldo*\n\nMasukkan jumlah deposit:\n_(minimal Rp 2000)_",
     {
       chat_id: chatId,
       message_id: messageId,
@@ -112,16 +107,15 @@ async function handleDepositAmount(bot, msg, session) {
   try {
     const apiKey = "hsh8P9MFZKND0uZyCF4w0txe5yatMDVkFknUXJmpAmDTBdRKpmtqeyQO70wpFAxDZVJ5zs3hEfm9wa2OaSq0OWaycdxjGumhmz8X";
     const reffId = generateUniqueCode();
-    const { totalAmount, uniqueCode: randomCode } = generateUniqueAmount(amount);
 
-    const paymentResponse = await createPayment(apiKey, reffId, totalAmount);
+    const paymentResponse = await createPayment(apiKey, reffId, amount);
 
     if (!paymentResponse.status || !paymentResponse.data.qr_string) {
       throw new Error("Gagal membuat pembayaran");
     }
 
     const paymentData = paymentResponse.data;
-    const { messageText, keyboard } = createPaymentMessage(paymentData, amount, randomCode);
+    const { messageText, keyboard } = createPaymentMessage(paymentData, amount, 0); // ← Tidak pakai unique amount
 
     const qrBuffer = await QRCode.toBuffer(paymentData.qr_string);
 
@@ -150,7 +144,7 @@ async function handleDepositAmount(bot, msg, session) {
       });
     }
 
-    await monitorPaymentStatus(bot, chatId, session.messageId, amount, randomCode, paymentData.id, apiKey);
+    await monitorPaymentStatus(bot, chatId, session.messageId, amount, paymentData.id, apiKey);
   } catch (error) {
     console.error("Payment creation error:", error);
     await bot.editMessageText("❌ Terjadi kesalahan saat membuat pembayaran.", {
@@ -165,7 +159,7 @@ async function handleDepositAmount(bot, msg, session) {
   }
 }
 
-async function monitorPaymentStatus(bot, chatId, messageId, originalAmount, uniqueCode, depositId, apiKey) {
+async function monitorPaymentStatus(bot, chatId, messageId, originalAmount, depositId, apiKey) {
   const checkInterval = setInterval(async () => {
     try {
       const statusResponse = await checkPaymentStatus(apiKey, depositId);
@@ -182,10 +176,8 @@ async function monitorPaymentStatus(bot, chatId, messageId, originalAmount, uniq
           console.error("❌ Gagal konfirmasi instant:", err.message);
         }
 
-        const finalAmount = originalAmount + uniqueCode;
-
-        await BalanceManager.updateBalance(chatId, finalAmount);
-        saveBalanceToJson(chatId, finalAmount);
+        await BalanceManager.updateBalance(chatId, originalAmount);
+        saveBalanceToJson(chatId, originalAmount);
 
         try {
           await bot.deleteMessage(chatId, messageId);
@@ -195,7 +187,7 @@ async function monitorPaymentStatus(bot, chatId, messageId, originalAmount, uniq
 
         await bot.sendMessage(
           chatId,
-          `✅ *Pembayaran berhasil!*\n\nSaldo sebesar *Rp ${finalAmount.toLocaleString()}* telah ditambahkan.\n\nJumlah deposit: Rp ${originalAmount.toLocaleString()}\nKode unik: Rp ${uniqueCode}\n\nSilakan ketik /start untuk kembali ke menu.`,
+          `✅ *Pembayaran berhasil!*\n\nSaldo sebesar *Rp ${originalAmount.toLocaleString()}* telah ditambahkan.\n\nSilakan ketik /start untuk kembali ke menu.`,
           {
             parse_mode: "Markdown",
           }
@@ -208,4 +200,3 @@ async function monitorPaymentStatus(bot, chatId, messageId, originalAmount, uniq
 }
 
 module.exports = { handleDeposit, handleDepositAmount };
-
