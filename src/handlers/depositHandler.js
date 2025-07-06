@@ -91,9 +91,9 @@ async function handleDepositAmount(bot, msg, session) {
     console.log("Failed to delete amount message:", error.message);
   }
 
-  if (isNaN(amount) || amount < 1000) {
+  if (isNaN(amount) || amount < 2000) {
     await bot.editMessageText(
-      "❌ Jumlah deposit tidak valid.\n\n💰 *Deposit Saldo*\n\nMasukkan jumlah deposit:\n_(minimal Rp 1000)_",
+      "❌ Jumlah deposit tidak valid.\n\n💰 *Deposit Saldo*\n\nMasukkan jumlah deposit:\n_(minimal Rp 2000)_",
       {
         chat_id: chatId,
         message_id: session.messageId,
